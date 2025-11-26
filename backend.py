@@ -442,30 +442,15 @@ async def speech_to_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== ROOT ENDPOINT ====================
-@app.get("/")
-def root():
-    return {
-        "message": "Dr. HealBot API is running!",
-        "version": "2.0",
-        "features": [
-            "Groq-powered AI chat with Llama 3.3 70B",
-            "Persistent chat history per user",
-            "Comprehensive patient profiles (medical history, lifestyle, organs)",
-            "Complete lab test results storage",
-            "Intelligent health summaries",
-            "Session-based conversations",
-            "Text-to-speech & Speech-to-text (Google)"
-        ]
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
-    }
-@app.get("/")
-def root():
-    """Serve the frontend"""
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
-    return {
-        "message": "Dr. HealBot API is running! (index.html not found)",
-        "version": "2.0"
-    }
+# Example API endpoint
+@app.get("/ping")
+async def ping():
+    return {"message": "pong"}
+
 
 
