@@ -12,6 +12,8 @@ import tempfile
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from fastapi.responses import FileResponse
+
 
 # Load environment variables
 load_dotenv()
@@ -448,4 +450,8 @@ def root():
             "Session-based conversations",
             "Text-to-speech & Speech-to-text (Google)"
         ]
+
     }
+@app.get("/")
+def main():
+    return FileResponse("index.html")
