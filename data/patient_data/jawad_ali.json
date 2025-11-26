@@ -1,0 +1,199 @@
+{
+    "name": "Jane Smith",
+    "patient_profile": {
+        "critical_medical_info": {
+            "major_conditions": "Type 2 diabetes (diagnosed 2021), mild osteoarthritis",
+            "current_medications": "Metformin 1000mg daily, Omega-3 supplements",
+            "allergies": "Shellfish",
+            "past_surgeries_or_treatments": "Knee arthroscopy in 2020",
+            "cancer_history": "No personal cancer history"
+        },
+        "vital_risk_factors": {
+            "smoking_status": "Former smoker, quit 3 years ago",
+            "alcohol_use": "Moderate, drinks 1\u20132 times a week",
+            "drug_use": "No drug use",
+            "blood_pressure_issue": "No diagnosed hypertension",
+            "cholesterol_issue": "Mildly elevated LDL noted in latest checkup",
+            "diabetes_status": "Type 2 diabetes, controlled",
+            "family_history_major_disease": "Mother has diabetes; grandfather had stroke"
+        },
+        "organ_health_summary": {
+            "heart_health": "Normal ECG; occasional palpitations",
+            "kidney_health": "No kidney issues reported",
+            "liver_health": "Mild fatty liver grade 1",
+            "gut_health": "Frequent bloating and slow digestion",
+            "immune_health": "Normal immune function"
+        },
+        "mental_sleep_health": {
+            "mental_health_status": "Good",
+            "mental_conditions": "Occasional stress",
+            "sleep_hours": "6\u20137 hours",
+            "sleep_problems": "Light sleep, wakes up early"
+        },
+        "lifestyle": {
+            "physical_activity_level": "Walks daily, gym 1\u20132 times/week",
+            "diet_type": "Low-carb diet",
+            "food_intolerances": "None",
+            "water_intake": "2 liters/day"
+        },
+        "skin_hair": {
+            "skin_issues": "Dry skin on winter days",
+            "hair_loss": "None"
+        },
+        "women_health": {
+            "pregnancy_history": "Not applicable (male)",
+            "menstrual_status": "Not applicable",
+            "menopause_status": "Not applicable",
+            "female_cancer_history": "Not applicable"
+        },
+        "genetic_info": {
+            "genetic_test_done": "No",
+            "epigenetic_test_done": "No",
+            "genetic_family_history": "Family history of metabolic disorders"
+        },
+        "primary_health_goals": "Weight reduction, improving blood sugar, better gut health"
+    },
+    "lab_test_results": {
+        "KidneyFunctionTest": {
+            "urea": "normal",
+            "creatinine": "normal",
+            "uric_acid": "normal",
+            "calcium": "normal",
+            "phosphorus": "normal",
+            "sodium": "normal",
+            "potassium": "normal",
+            "chloride": "normal",
+            "amylase": "not_tested",
+            "lipase": "not_tested",
+            "urine_analysis": "normal",
+            "bicarbonate": "normal",
+            "egfr": "normal",
+            "serum_osmolality": "not_tested",
+            "ionized_calcium": "not_tested"
+        },
+        "BasicCheckup": {
+            "cbc": "normal",
+            "differential": "normal"
+        },
+        "DiabeticProfile": {
+            "fasting_blood_sugar": "high",
+            "hba1c": "borderline_high",
+            "insulin": "normal",
+            "homa_ir": "slightly_high"
+        },
+        "LipidProfile": {
+            "cholesterol_total": "normal",
+            "ldl": "high",
+            "hdl_direct": "normal",
+            "cholesterol_hdl_ratio": "normal",
+            "triglycerides": "normal",
+            "ldl_direct": "not_tested",
+            "apo_a1": "not_tested",
+            "apo_b": "not_tested",
+            "apo_b_apo_a1_ratio": "not_tested"
+        },
+        "HormoneProfile": {
+            "testosterone_total_free": "normal",
+            "estrogen_e2": "not_tested",
+            "progesterone": "not_tested",
+            "dhea_s": "normal",
+            "shbg": "normal",
+            "lh": "normal",
+            "fsh": "normal"
+        },
+        "ThyroidProfile": {
+            "tsh": "normal",
+            "free_t3": "normal",
+            "free_t4": "normal",
+            "total_t3": "not_tested",
+            "total_t4": "not_tested",
+            "reverse_t3": "not_tested",
+            "tpo_ab": "normal",
+            "tg_ab": "normal"
+        },
+        "AdrenalStressHormones": {
+            "cortisol": "normal",
+            "acth": "normal",
+            "igf1": "normal",
+            "leptin": "normal",
+            "adiponectin": "normal"
+        },
+        "CancerMarkers": {
+            "ca125": "normal",
+            "ca153": "not_tested",
+            "ca199": "normal",
+            "psa": "normal",
+            "cea": "normal",
+            "calcitonin": "not_tested",
+            "afp": "normal",
+            "tnf": "normal"
+        },
+        "LiverFunctionTest": {
+            "albumin": "normal",
+            "total_protein": "normal",
+            "alt": "normal",
+            "alp": "normal",
+            "ast": "normal",
+            "ggt": "normal",
+            "ldh": "normal",
+            "globulin": "normal",
+            "albumin_globulin_ratio": "normal",
+            "magnesium": "normal",
+            "total_bilirubin": "normal",
+            "direct_bilirubin": "normal",
+            "indirect_bilirubin": "normal",
+            "ammonia": "not_tested"
+        },
+        "BoneHealth": {
+            "calcium": "normal",
+            "phosphorus": "normal"
+        },
+        "CardiacProfile": {
+            "hs_crp": "normal",
+            "ck": "normal",
+            "ck_mb": "normal",
+            "homocysteine": "not_tested"
+        },
+        "MineralsHeavyMetals": {
+            "zinc": "normal",
+            "copper": "normal",
+            "selenium": "normal"
+        },
+        "IronProfile": {
+            "iron": "normal",
+            "tibc": "normal",
+            "transferrin": "normal"
+        },
+        "Vitamins": {
+            "vitamin_d": "low",
+            "vitamin_b12": "normal"
+        },
+        "ImmuneProfile": {
+            "ana": "normal",
+            "ige": "normal",
+            "igg": "normal",
+            "anti_ccp": "normal",
+            "dsdna_ssa_ssb_rnp_sm": "not_tested",
+            "anca": "not_tested",
+            "anti_ena": "normal",
+            "il6": "normal",
+            "comprehensive_allergy_profile": "normal",
+            "allergy_panel_ige_igg": "normal"
+        },
+        "NordicLabTests": {
+            "nutreval": "not_tested",
+            "gi_360": "not_tested",
+            "dutch_plus": "not_tested",
+            "toxdetect": "not_tested",
+            "truage": "normal",
+            "glycanage": "normal"
+        },
+        "GenomicsProfile": {
+            "wgs_30X": "normal",
+            "wes_100X": "not_tested",
+            "microbiome": "normal",
+            "telomerase_length": "normal"
+        }
+    },
+    "last_updated": "2025-11-26T19:41:48.202345"
+}
