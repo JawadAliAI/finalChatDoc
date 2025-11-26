@@ -498,9 +498,8 @@
 
   <script>
     // Auto-detect API URL: use current origin for deployed version, empty for local
-    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? ''
-      : window.location.origin;
+    const API = "https://finalchatdoc.onrender.com";
+
 
     // Elements
     const toggler = document.getElementById('toggler');
@@ -983,5 +982,6 @@
     })();
   </script>
 </body>
+
 
 </html>
