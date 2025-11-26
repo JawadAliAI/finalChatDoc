@@ -459,6 +459,13 @@ def root():
 
     }
 @app.get("/")
-def main():
-    return FileResponse("index.html")
+def root():
+    """Serve the frontend"""
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    return {
+        "message": "Dr. HealBot API is running! (index.html not found)",
+        "version": "2.0"
+    }
+
 
