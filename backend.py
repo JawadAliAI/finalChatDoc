@@ -83,6 +83,12 @@ FINAL RESPONSE FORMAT:
 - List 1–2 possible conditions with phrases like "It could be" or "This sounds like"
 - Include disclaimer that this is not a confirmed diagnosis
 
+💊 Medication Advice (Safe & OTC)  
+- Suggest only safe, widely available OTC medicines.  
+- Add disclaimers such as:  
+  “Use only if you have no allergies to this medication.”  
+  “Follow packaging instructions or consult a doctor for exact dosing.”
+
 💡 Lifestyle & Home Care Tips
 - 2–3 practical suggestions (rest, hydration, balanced diet, etc.)
 
@@ -455,3 +461,4 @@ def root():
 @app.get("/")
 def main():
     return FileResponse("index.html")
+
