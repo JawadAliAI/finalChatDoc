@@ -311,6 +311,36 @@ def load_chat_history(user_id: str) -> list:
 def delete_chat_history(user_id: str):
     db.collection("chat_history").document(user_id).delete()
 
+import re
+
+def remove_emojis(text: str) -> str:
+    """
+    Remove all emojis from a string.
+    """
+    emoji_pattern = re.compile(
+        "[" 
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags
+        "\U00002700-\U000027BF"  # Dingbats
+        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+        "\U00002600-\U000026FF"  # Misc symbols
+        "\U00002B00-\U00002BFF"  # Misc symbols & arrows
+        "]+", flags=re.UNICODE
+    )
+    return emoji_pattern.sub(r'', text)
+import markdown
+
+def generate_patient_summary_html(patient_data: dict) -> str:
+    """
+    Generate patient summary as HTML instead of Markdown.
+    """
+    md_summary = generate_patient_summary(patient_data)
+    html_summary = markdown.markdown(md_summary)
+    return html_summary
+
+
 # ==================== ROOT ENDPOINT ====================
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -486,36 +516,51 @@ async def get_patient(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/patient-summary/{user_id}")
-async def get_patient_summary(user_id: str):
-    """Get formatted summary of patient's medical profile and lab results"""
+async def get_patient_summary(user_id: str, format: str = "markdown"):
+    """
+    Get formatted summary of patient's medical profile and lab results.
+    Supports Markdown (default) or HTML output.
+    """
     try:
         data = load_patient_data(user_id)
         if not data:
             return JSONResponse({"summary": "No patient data available"})
         
-        summary = generate_patient_summary(data)
+        if format.lower() == "html":
+            summary = generate_patient_summary_html(data)
+        else:
+            summary = generate_patient_summary(data)
+        
         return JSONResponse({"summary": summary, "raw_data": data})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ==================== TTS ENDPOINT ====================
 @app.post("/tts")
 async def text_to_speech(req: TTSRequest):
     try:
+        # Remove emojis from the input text
+        clean_text = remove_emojis(req.text)
+
         tmp_mp3 = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        tts = gTTS(text=req.text, lang=req.language_code)
+        tts = gTTS(text=clean_text, lang=req.language_code)
         tts.save(tmp_mp3.name)
-        
+
         tmp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         subprocess.run(
             ["ffmpeg", "-y", "-i", tmp_mp3.name, "-ar", "44100", "-ac", "2", tmp_wav.name],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
-        
+
+        # Delete temporary mp3
+        os.remove(tmp_mp3.name)
+
         return FileResponse(tmp_wav.name, media_type="audio/wav", filename="speech.wav")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ==================== STT ENDPOINT ====================
 # Initialize speech recognizer
@@ -546,4 +591,5 @@ async def speech_to_text(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Error in STT: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
