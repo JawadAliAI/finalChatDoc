@@ -315,17 +315,24 @@ async def chat(request: ChatRequest):
         messages = [
             {"role": "system", "content": DOCTOR_SYSTEM_PROMPT},
             {"role": "system", "content": f"""
-You MUST always consider the following patient medical data when responding:
-
-{persistent_summary}
-
-Instructions:
-- Never ignore this data
-- Always factor in medications, allergies, chronic diseases, labs, and past history
-- Treat any new symptoms the patient mentions as updates to their profile
-- Provide guidance in the FINAL RESPONSE FORMAT
-"""}
+        You MUST always consider the following patient medical data when responding:
+        
+        {persistent_summary}
+        
+        Instructions:
+        - NEVER ignore patient history (chronic diseases, medications, allergies, labs, past medical issues)
+        - Respond in two stages:
+            1. **Conversational stage**: 
+               - Acknowledge the patient's symptoms warmly.
+               - Ask 3-4 clarifying medical questions to better understand the situation.
+               - Example: "I’m sorry you’re feeling unwell. How long have you had a fever? Are you experiencing any chills, headache, or cough? Any other new symptoms?"
+            2. **Structured guidance stage**: 
+               - Provide advice in the FINAL RESPONSE FORMAT below.
+        - Maintain a warm, empathetic, and professional tone.
+        - Never give definitive diagnoses; always use soft language.
+        """}
         ]
+
         
         # Add previous chat history
         for msg in chat_history:
@@ -496,6 +503,7 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
+
 
 
 
