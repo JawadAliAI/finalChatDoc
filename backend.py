@@ -36,13 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Storage directories
-STORAGE_DIR = Path("data")
-CHAT_HISTORY_DIR = STORAGE_DIR / "chat_history"
-PATIENT_DATA_DIR = STORAGE_DIR / "patient_data"
 
-for dir_path in [STORAGE_DIR, CHAT_HISTORY_DIR, PATIENT_DATA_DIR]:
-    dir_path.mkdir(exist_ok=True)
 
 # ==================== MODELS ====================
 class ChatRequest(BaseModel):
@@ -275,42 +269,50 @@ def generate_patient_summary(patient_data: dict) -> str:
     return summary
 
 def save_patient_data(user_id: str, data: dict):
-    file_path = PATIENT_DATA_DIR / f"{user_id}.json"
-    with open(file_path, 'w') as f:
-        json.dump(data, f, indent=2)
+    """Save patient data to Firebase Firestore"""
+    data["last_updated"] = datetime.now().isoformat()
+    db.collection("patients").document(user_id).set(data)
+
+
 
 def load_patient_data(user_id: str) -> dict:
-    file_path = PATIENT_DATA_DIR / f"{user_id}.json"
-    if file_path.exists():
-        with open(file_path, 'r') as f:
-            return json.load(f)
+    """Load patient data from Firebase Firestore"""
+    doc = db.collection("patients").document(user_id).get()
+    if doc.exists:
+        return doc.to_dict()
     return None
 
 
-def load_chat_history(user_id: str) -> list:
-    """Load chat history for a user"""
-    file_path = CHAT_HISTORY_DIR / f"{user_id}.json"
-    if file_path.exists():
-        with open(file_path, 'r') as f:
-            data = json.load(f)
-            return data.get("messages", [])
-    return []
 
 def save_chat_history(user_id: str, messages: list):
-    """Save chat history for a user"""
-    file_path = CHAT_HISTORY_DIR / f"{user_id}.json"
-    with open(file_path, 'w') as f:
-        json.dump({
-            "user_id": user_id,
-            "last_updated": datetime.now().isoformat(),
-            "messages": messages
-        }, f, indent=2)
+    db.collection("chat_history").document(user_id).set({
+        "messages": messages,
+        "last_updated": datetime.now().isoformat()
+    })
+
+def load_chat_history(user_id: str) -> list:
+    doc = db.collection("chat_history").document(user_id).get()
+    if doc.exists:
+        return doc.to_dict().get("messages", [])
+    return []
 
 def delete_chat_history(user_id: str):
-    """Delete chat history for a user"""
-    file_path = CHAT_HISTORY_DIR / f"{user_id}.json"
-    if file_path.exists():
-        file_path.unlink()
+    db.collection("chat_history").document(user_id).delete()
+
+
+
+import firebase_admin
+from firebase_admin import credentials, firestore
+from datetime import datetime
+
+# Path to your Firebase service account key JSON
+FIREBASE_CRED_PATH = r"serviceAccountKey.json"
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(FIREBASE_CRED_PATH)
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
 
 # ==================== CHAT ENDPOINT ====================
 @app.post("/chat")
