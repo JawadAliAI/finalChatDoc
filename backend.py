@@ -10,7 +10,6 @@ import os
 import json
 import tempfile
 import subprocess
-import re
 from datetime import datetime
 from pathlib import Path
 from fastapi.responses import FileResponse
@@ -56,29 +55,11 @@ class PatientData(BaseModel):
     patient_profile: dict
     lab_test_results: dict
 
-# ==================== EMOJI REMOVAL FUNCTION ====================
-def remove_emojis(text: str) -> str:
-    """Remove all emojis from text"""
-    # Emoji pattern that matches most emojis
-    emoji_pattern = re.compile(
-        "["
-        "\U0001F600-\U0001F64F"  # emoticons
-        "\U0001F300-\U0001F5FF"  # symbols & pictographs
-        "\U0001F680-\U0001F6FF"  # transport & map symbols
-        "\U0001F1E0-\U0001F1FF"  # flags (iOS)
-        "\U00002702-\U000027B0"
-        "\U000024C2-\U0001F251"
-        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
-        "\U0001FA00-\U0001FA6F"  # Chess Symbols
-        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
-        "\U00002600-\U000026FF"  # Miscellaneous Symbols
-        "\U00002700-\U000027BF"  # Dingbats
-        "]+",
-        flags=re.UNICODE
-    )
-    return emoji_pattern.sub(r'', text)
-
 # ==================== SYSTEM PROMPT ====================
+# Replace the DOCTOR_SYSTEM_PROMPT in your code with this improved version:
+
+# Replace the DOCTOR_SYSTEM_PROMPT in your code with this improved version:
+
 DOCTOR_SYSTEM_PROMPT = """
 You are Dr. HealBot, a calm, knowledgeable, and empathetic virtual doctor.
 
@@ -96,11 +77,6 @@ RULES FOR PATIENT HISTORY:
 - Keep references to history natural and brief—only if medically relevant.
 
 ⚠️ CRITICAL: ASK ONLY ONE QUESTION AT A TIME - This makes the conversation natural and not overwhelming.
-
-IMPORTANT FORMATTING RULES:
-- DO NOT use any emojis in your responses
-- Use clear text markers instead (e.g., "BASED ON YOUR SYMPTOMS:", "POSSIBLE CAUSES:", "MEDICATION ADVICE:")
-- Keep formatting clean and professional without emojis
 
 RESTRICTIONS:
 - ONLY provide information related to medical, health, or wellness topics.
@@ -125,7 +101,7 @@ Examples of good single questions:
 
 **PHASE 2: CONTINUED CONVERSATION**
 - Continue asking clarifying questions ONE AT A TIME until you have enough information
-- Typical consultations need 3-5 exchanges before final assessment
+- Typical consultations need 2-3 exchanges before final assessment
 - Each response should have: brief acknowledgment + ONE question
 - Consider asking about: onset, duration, severity, location, triggers, relieving factors
 - Factor in patient's medical history when asking questions
@@ -134,15 +110,15 @@ Examples of good single questions:
 **PHASE 3: FINAL COMPREHENSIVE RESPONSE**
 Only provide the detailed response format AFTER you have gathered sufficient information through conversation.
 
-BASED ON YOUR SYMPTOMS:
+📋 Based on what you've told me...
 [Brief summary of patient's symptoms, plus any relevant history factors]
 
-POSSIBLE CAUSES (Preliminary):
+🔍 Possible Causes (Preliminary)
 - 1–2 possible explanations using soft language ("It could be…", "This might be…")
 - Include disclaimer that this is not a confirmed diagnosis
 - NOTE: Adjust based on patient's history (conditions, meds, allergies)
 
-MEDICATION ADVICE (Safe & OTC):
+💊 Medication Advice (Safe & OTC)
 - Suggest only widely available OTC medicines
 - ENSURE medication is safe given the patient's:
   - allergies
@@ -152,13 +128,13 @@ MEDICATION ADVICE (Safe & OTC):
   "Use only if you have no allergies to this medication."
   "Follow packaging instructions or consult a doctor for exact dosing."
 
-LIFESTYLE & HOME CARE TIPS:
+💡 Lifestyle & Home Care Tips
 - 2–3 simple, practical suggestions
 
-WHEN TO SEE A REAL DOCTOR:
+⚠️ When to See a Real Doctor
 - Warning signs adjusted to the patient's underlying medical risks
 
-FOLLOW-UP ADVICE:
+📅 Follow-Up Advice
 - One short recommendation about monitoring symptoms or follow-up timing
 
 **HOW TO DECIDE WHEN TO GIVE FINAL RESPONSE:**
@@ -190,22 +166,20 @@ TONE & STYLE:
 - Clear, empathetic, no jargon
 - Show you're listening by referencing what they've told you
 - Never give definitive diagnoses; always use soft language
-- NEVER use emojis in responses
 
 IMPORTANT:
 - This is preliminary guidance, not a substitute for professional care.
 - Never provide non-medical information.
 - Be conversational first, comprehensive later.
-- NO EMOJIS - use plain text formatting only.
+- response has No Emoji or  No emojis No smileys No flags No pictographs
 """
-
 # ==================== HELPER FUNCTIONS ====================
 def generate_patient_summary(patient_data: dict) -> str:
     """Generate a comprehensive summary of patient's medical profile and lab results"""
     if not patient_data:
         return ""
     
-    summary = "\nPATIENT MEDICAL PROFILE\n"
+    summary = "\n🏥 **PATIENT MEDICAL PROFILE**\n"
     
     # Patient Profile Section
     if "patient_profile" in patient_data:
@@ -214,7 +188,7 @@ def generate_patient_summary(patient_data: dict) -> str:
         # Critical Medical Info
         if "critical_medical_info" in profile:
             cmi = profile["critical_medical_info"]
-            summary += "\nCRITICAL MEDICAL INFORMATION:\n"
+            summary += "\n📌 **Critical Medical Information:**\n"
             summary += f"- Major Conditions: {cmi.get('major_conditions', 'None')}\n"
             summary += f"- Current Medications: {cmi.get('current_medications', 'None')}\n"
             summary += f"- Allergies: {cmi.get('allergies', 'None')}\n"
@@ -224,7 +198,7 @@ def generate_patient_summary(patient_data: dict) -> str:
         # Vital Risk Factors
         if "vital_risk_factors" in profile:
             vrf = profile["vital_risk_factors"]
-            summary += "\nRISK FACTORS:\n"
+            summary += "\n⚠️ **Risk Factors:**\n"
             if vrf.get('smoking_status') and 'smok' in vrf['smoking_status'].lower():
                 summary += f"- Smoking: {vrf.get('smoking_status')}\n"
             if vrf.get('blood_pressure_issue') and vrf['blood_pressure_issue'] != 'No':
@@ -250,14 +224,14 @@ def generate_patient_summary(patient_data: dict) -> str:
                 issues.append(f"Gut: {ohs['gut_health']}")
             
             if issues:
-                summary += "\nORGAN HEALTH CONCERNS:\n"
+                summary += "\n🫀 **Organ Health Concerns:**\n"
                 for issue in issues:
                     summary += f"- {issue}\n"
         
         # Mental & Sleep Health
         if "mental_sleep_health" in profile:
             msh = profile["mental_sleep_health"]
-            summary += "\nMENTAL & SLEEP HEALTH:\n"
+            summary += "\n🧠 **Mental & Sleep Health:**\n"
             summary += f"- Mental Status: {msh.get('mental_health_status', 'Not specified')}\n"
             if msh.get('mental_conditions'):
                 summary += f"- Mental Conditions: {msh.get('mental_conditions')}\n"
@@ -270,7 +244,7 @@ def generate_patient_summary(patient_data: dict) -> str:
         # Lifestyle
         if "lifestyle" in profile:
             ls = profile["lifestyle"]
-            summary += "\nLIFESTYLE:\n"
+            summary += "\n🏃 **Lifestyle:**\n"
             summary += f"- Activity: {ls.get('physical_activity_level', 'Not specified')}\n"
             summary += f"- Diet: {ls.get('diet_type', 'Not specified')}\n"
     
@@ -289,14 +263,14 @@ def generate_patient_summary(patient_data: dict) -> str:
                             abnormal_results.append(f"{test_name.replace('_', ' ').title()}: {result}")
         
         if abnormal_results:
-            summary += "\nKEY LAB RESULTS (Abnormal):\n"
+            summary += "\n🔬 **Key Lab Results (Abnormal):**\n"
             for result in abnormal_results[:10]:  # Limit to top 10 most important
                 summary += f"- {result}\n"
     
     # Health Goals
     if "patient_profile" in patient_data and "primary_health_goals" in patient_data["patient_profile"]:
         goals = patient_data["patient_profile"]["primary_health_goals"]
-        summary += f"\nHEALTH GOALS: {goals}\n"
+        summary += f"\n🎯 **Health Goals:** {goals}\n"
     
     return summary
 
@@ -346,7 +320,7 @@ async def chat(request: ChatRequest):
     - Loads patient data and chat history
     - Updates patient data if new symptoms are reported
     - Sends patient summary + chat history + current message to LLM
-    - Returns structured, history-aware medical response (without emojis)
+    - Returns structured, history-aware medical response
     """
     try:
         user_id = request.user_id
@@ -392,7 +366,7 @@ async def chat(request: ChatRequest):
            - Wait for the patient's answer before asking the next question.
            - Limit clarifying questions to **3–4 total**, but ask them sequentially, not all at once.
            - Example:
-               - "I'm sorry you're feeling unwell. How long have you had this fever?"
+               - "I’m sorry you’re feeling unwell. How long have you had this fever?"
                - Wait for response, then: "Are you experiencing any chills or body aches?"
                - And so on.
         2. **Structured Guidance Stage**:
@@ -401,9 +375,10 @@ async def chat(request: ChatRequest):
         - Always factor in patient history (conditions, medications, allergies, labs).
         - Keep tone warm, empathetic, professional.
         - Never give definitive diagnoses; always use soft language.
-        - CRITICAL: DO NOT USE ANY EMOJIS IN YOUR RESPONSE
         """}
         ]
+
+
         
         # Add previous chat history
         for msg in chat_history:
@@ -423,11 +398,6 @@ async def chat(request: ChatRequest):
         )
         
         reply_text = response.choices[0].message.content.strip()
-        
-        # -------------------------------
-        # Remove emojis from response
-        # -------------------------------
-        reply_text = remove_emojis(reply_text)
         
         # -------------------------------
         # Update chat history
@@ -524,11 +494,8 @@ class TTSRequest(BaseModel):
 @app.post("/tts")
 async def text_to_speech(req: TTSRequest):
     try:
-        # Remove emojis from text before TTS
-        clean_text = remove_emojis(req.text)
-        
         tmp_mp3 = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        tts = gTTS(text=clean_text, lang=req.language_code)
+        tts = gTTS(text=req.text, lang=req.language_code)
         tts.save(tmp_mp3.name)
         
         tmp_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
