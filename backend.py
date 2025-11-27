@@ -289,6 +289,26 @@ IMPORTANT:
 - Keep your greeting natural and conversational (2-3 sentences max)"""
             
             messages.append({"role": "system", "content": welcome_context})
+
+        # Always include the full patient summary in every LLM call
+        if patient_data:
+            persistent_summary = generate_patient_summary(patient_data)
+        
+            persistent_context = f"""
+        You must ALWAYS use the following patient medical data when answering.
+        This data comes from the patient's health record and stays valid throughout the conversation.
+        
+        PATIENT MEDICAL SUMMARY:
+        {persistent_summary}
+        
+        Instructions:
+        - Never ignore this data
+        - Always consider diagnosis, medications, allergies, labs, past medical issues
+        - If user provides new medical info, assume it updates their profile
+        """
+        
+            messages.append({"role": "system", "content": persistent_context})
+
         
         # Add chat history (convert format for Groq)
         for msg in chat_history:
@@ -454,6 +474,7 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
+
 
 
 
