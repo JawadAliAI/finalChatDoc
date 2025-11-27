@@ -354,18 +354,24 @@ async def chat(request: ChatRequest):
         {persistent_summary}
         
         Instructions:
-        - NEVER ignore patient history (chronic diseases, medications, allergies, labs, past medical issues)
-        - Respond in two stages:
-            1. **Conversational stage**: 
-               - Acknowledge the patient's symptoms warmly.
-               - Ask 3-4 clarifying medical questions to better understand the situation.
-               - Example: "I’m sorry you’re feeling unwell. How long have you had a fever? Are you experiencing any chills, headache, or cough? Any other new symptoms?"
-            2. **Structured guidance stage**: 
-               - Provide advice in the FINAL RESPONSE FORMAT below.
-        - Maintain a warm, empathetic, and professional tone.
+        1. **Conversational Stage**:
+           - Start by acknowledging the patient's symptoms warmly.
+           - Ask **only one question at a time** to clarify their condition.
+           - Wait for the patient's answer before asking the next question.
+           - Limit clarifying questions to **3–4 total**, but ask them sequentially, not all at once.
+           - Example:
+               - "I’m sorry you’re feeling unwell. How long have you had this fever?"
+               - Wait for response, then: "Are you experiencing any chills or body aches?"
+               - And so on.
+        2. **Structured Guidance Stage**:
+           - Only after 3–4 clarifying questions, provide the structured advice in the FINAL RESPONSE FORMAT.
+        
+        - Always factor in patient history (conditions, medications, allergies, labs).
+        - Keep tone warm, empathetic, professional.
         - Never give definitive diagnoses; always use soft language.
         """}
         ]
+
 
         
         # Add previous chat history
@@ -537,6 +543,7 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
+
 
 
 
