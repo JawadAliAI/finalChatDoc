@@ -306,7 +306,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 
 # Path to your Firebase service account key JSON
-FIREBASE_CRED_PATH = r"serviceAccountKey.json"
+FIREBASE_CRED_PATH = "serviceAccountKey.json"
 
 if not firebase_admin._apps:
     cred = credentials.Certificate(FIREBASE_CRED_PATH)
@@ -551,3 +551,4 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
+
