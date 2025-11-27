@@ -1,9 +1,9 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from groq import Groq
+import google.generativeai as genai
 from gtts import gTTS
 import speech_recognition as sr
 import os
@@ -11,18 +11,35 @@ import json
 import tempfile
 import subprocess
 from datetime import datetime
-from pathlib import Path
-from fastapi.responses import FileResponse
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-
-
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # Load environment variables
 load_dotenv()
 
-# Initialize Groq client
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY", "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"))
+# ==================== ENVIRONMENT VALIDATION ====================
+def validate_environment():
+    """Validate required environment variables"""
+    required_vars = ["GEMINI_API_KEY", "FIREBASE_CREDENTIALS"]
+    missing = [var for var in required_vars if not os.getenv(var)]
+    if missing:
+        raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+validate_environment()
+
+# ==================== INITIALIZE SERVICES ====================
+# Initialize Gemini client (NO HARDCODED KEY)
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Initialize Firebase
+firebase_creds = os.getenv("FIREBASE_CREDENTIALS")
+cred_dict = json.loads(firebase_creds)
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(cred_dict)
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
 
 # Initialize FastAPI
 app = FastAPI(title="Dr. HealBot - Medical Consultation API")
@@ -36,8 +53,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
 # ==================== MODELS ====================
 class ChatRequest(BaseModel):
     message: str
@@ -49,11 +64,11 @@ class PatientData(BaseModel):
     patient_profile: dict
     lab_test_results: dict
 
+class TTSRequest(BaseModel):
+    text: str
+    language_code: str = "en"
+
 # ==================== SYSTEM PROMPT ====================
-# Replace the DOCTOR_SYSTEM_PROMPT in your code with this improved version:
-
-# Replace the DOCTOR_SYSTEM_PROMPT in your code with this improved version:
-
 DOCTOR_SYSTEM_PROMPT = """
 You are Dr. HealBot, a calm, knowledgeable, and empathetic virtual doctor.
 
@@ -167,6 +182,7 @@ IMPORTANT:
 - Be conversational first, comprehensive later.
 - response has No Emoji or  No emojis No smileys No flags No pictographs
 """
+
 # ==================== HELPER FUNCTIONS ====================
 def generate_patient_summary(patient_data: dict) -> str:
     """Generate a comprehensive summary of patient's medical profile and lab results"""
@@ -258,7 +274,7 @@ def generate_patient_summary(patient_data: dict) -> str:
         
         if abnormal_results:
             summary += "\n🔬 **Key Lab Results (Abnormal):**\n"
-            for result in abnormal_results[:10]:  # Limit to top 10 most important
+            for result in abnormal_results[:10]:
                 summary += f"- {result}\n"
     
     # Health Goals
@@ -273,16 +289,12 @@ def save_patient_data(user_id: str, data: dict):
     data["last_updated"] = datetime.now().isoformat()
     db.collection("patients").document(user_id).set(data)
 
-
-
 def load_patient_data(user_id: str) -> dict:
     """Load patient data from Firebase Firestore"""
     doc = db.collection("patients").document(user_id).get()
     if doc.exists:
         return doc.to_dict()
     return None
-
-
 
 def save_chat_history(user_id: str, messages: list):
     db.collection("chat_history").document(user_id).set({
@@ -299,20 +311,31 @@ def load_chat_history(user_id: str) -> list:
 def delete_chat_history(user_id: str):
     db.collection("chat_history").document(user_id).delete()
 
+# ==================== ROOT ENDPOINT ====================
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    """Root endpoint - tries to serve index.html, falls back to JSON"""
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return JSONResponse({
+            "status": "healthy",
+            "service": "Dr. HealBot API",
+            "version": "1.0.0",
+            "endpoints": {
+                "chat": "/chat",
+                "tts": "/tts",
+                "stt": "/stt",
+                "patient_data": "/patient-data/{user_id}",
+                "chat_history": "/chat-history/{user_id}",
+                "patient_summary": "/patient-summary/{user_id}"
+            }
+        })
 
-
-import firebase_admin
-from firebase_admin import credentials, firestore
-from datetime import datetime
-
-# Path to your Firebase service account key JSON
-FIREBASE_CRED_PATH = "serviceAccountKey.json"
-
-if not firebase_admin._apps:
-    cred = credentials.Certificate(FIREBASE_CRED_PATH)
-    firebase_admin.initialize_app(cred)
-
-db = firestore.client()
+@app.get("/ping")
+async def ping():
+    return {"message": "pong"}
 
 # ==================== CHAT ENDPOINT ====================
 @app.post("/chat")
@@ -321,22 +344,18 @@ async def chat(request: ChatRequest):
     Chat endpoint that:
     - Loads patient data and chat history
     - Updates patient data if new symptoms are reported
-    - Sends patient summary + chat history + current message to LLM
+    - Sends patient summary + chat history + current message to Gemini
     - Returns structured, history-aware medical response
     """
     try:
         user_id = request.user_id
         user_message = request.message.strip()
         
-        # -------------------------------
         # Load patient data & chat history
-        # -------------------------------
         patient_data = load_patient_data(user_id) or {}
         chat_history = load_chat_history(user_id)
         
-        # -------------------------------
         # Update patient data with new symptom info
-        # -------------------------------
         if "new_symptoms" not in patient_data:
             patient_data["new_symptoms"] = []
         
@@ -346,71 +365,63 @@ async def chat(request: ChatRequest):
             patient_data["new_symptoms"].append(user_message)
             save_patient_data(user_id, patient_data)
         
-        # -------------------------------
         # Generate patient summary
-        # -------------------------------
         persistent_summary = generate_patient_summary(patient_data) if patient_data else "No patient history available."
         
-        # -------------------------------
-        # Prepare messages for LLM
-        # -------------------------------
-        messages = [
-            {"role": "system", "content": DOCTOR_SYSTEM_PROMPT},
-            {"role": "system", "content": f"""
-        You MUST always consider the following patient medical data when responding:
-        
-        {persistent_summary}
-        
-        Instructions:
-        1. **Conversational Stage**:
-           - Start by acknowledging the patient's symptoms warmly.
-           - Ask **only one question at a time** to clarify their condition.
-           - Wait for the patient's answer before asking the next question.
-           - Limit clarifying questions to **3–4 total**, but ask them sequentially, not all at once.
-           - Example:
-               - "I’m sorry you’re feeling unwell. How long have you had this fever?"
-               - Wait for response, then: "Are you experiencing any chills or body aches?"
-               - And so on.
-        2. **Structured Guidance Stage**:
-           - Only after 3–4 clarifying questions, provide the structured advice in the FINAL RESPONSE FORMAT.
-        
-        - Always factor in patient history (conditions, medications, allergies, labs).
-        - Keep tone warm, empathetic, professional.
-        - Never give definitive diagnoses; always use soft language.
-        """}
-        ]
+        # Prepare messages for Gemini (convert to single prompt format)
+        system_context = f"""
+{DOCTOR_SYSTEM_PROMPT}
 
+You MUST always consider the following patient medical data when responding:
 
+{persistent_summary}
+
+Instructions:
+1. **Conversational Stage**:
+   - Start by acknowledging the patient's symptoms warmly.
+   - Ask **only one question at a time** to clarify their condition.
+   - Wait for the patient's answer before asking the next question.
+   - Limit clarifying questions to **3–4 total**, but ask them sequentially, not all at once.
+   - Example:
+       - "I'm sorry you're feeling unwell. How long have you had this fever?"
+       - Wait for response, then: "Are you experiencing any chills or body aches?"
+       - And so on.
+2. **Structured Guidance Stage**:
+   - Only after 3–4 clarifying questions, provide the structured advice in the FINAL RESPONSE FORMAT.
+
+- Always factor in patient history (conditions, medications, allergies, labs).
+- Keep tone warm, empathetic, professional.
+- Never give definitive diagnoses; always use soft language.
+"""
+        
+        # Build conversation prompt
+        conversation_prompt = system_context + "\n\n=== CONVERSATION HISTORY ===\n"
         
         # Add previous chat history
         for msg in chat_history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
+            role = "Patient" if msg["role"] == "user" else "Dr. HealBot"
+            conversation_prompt += f"\n{role}: {msg['content']}\n"
         
         # Add current user message
-        messages.append({"role": "user", "content": user_message})
+        conversation_prompt += f"\nPatient: {user_message}\n\nDr. HealBot:"
         
-        # -------------------------------
-        # Call Groq API (LLM)
-        # -------------------------------
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=1024,
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        response = model.generate_content(
+            conversation_prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=1024,
+            )
         )
         
-        reply_text = response.choices[0].message.content.strip()
+        reply_text = response.text.strip()
         
-        # -------------------------------
         # Update chat history
-        # -------------------------------
         chat_history.append({"role": "user", "content": user_message})
         chat_history.append({"role": "assistant", "content": reply_text})
         save_chat_history(user_id, chat_history)
         
-        # -------------------------------
-        # Return response
-        # -------------------------------
         return JSONResponse({
             "reply": reply_text,
             "user_id": user_id,
@@ -420,7 +431,6 @@ async def chat(request: ChatRequest):
     except Exception as e:
         print(f"Error in /chat: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # ==================== CHAT HISTORY ENDPOINTS ====================
 @app.get("/chat-history/{user_id}")
@@ -489,10 +499,6 @@ async def get_patient_summary(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== TTS ENDPOINT ====================
-class TTSRequest(BaseModel):
-    text: str
-    language_code: str = "en"
-
 @app.post("/tts")
 async def text_to_speech(req: TTSRequest):
     try:
@@ -540,15 +546,3 @@ async def speech_to_text(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Error in STT: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-# ==================== ROOT ENDPOINT ====================
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return f.read()
-
-# Example API endpoint
-@app.get("/ping")
-async def ping():
-    return {"message": "pong"}
-
