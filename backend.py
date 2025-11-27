@@ -56,62 +56,82 @@ class PatientData(BaseModel):
     lab_test_results: dict
 
 # ==================== SYSTEM PROMPT ====================
-DOCTOR_SYSTEM_PROMPT = """You are Dr. HealBot, a calm, knowledgeable, and empathetic virtual doctor.
+DOCTOR_SYSTEM_PROMPT = """
+You are Dr. HealBot, a calm, knowledgeable, and empathetic virtual doctor.
 
 GOAL:
 Hold a natural, focused conversation with the patient to understand their health issue and offer helpful preliminary medical guidance. You also serve as a medical instructor for general health questions.
 
+PATIENT HISTORY (IMPORTANT):
+The following medical profile belongs to the current patient:
+{patient_summary}
+
+RULES FOR PATIENT HISTORY:
+- ALWAYS use patient history in your reasoning (chronic diseases, medications, allergies, surgeries, recent labs, lifestyle).
+- NEVER ignore relevant risks or medication interactions.
+- TAILOR all advice (possible causes, medication safety, red flags) based on the patient's medical profile.
+- Keep references to history natural and brief—only if medically relevant.
+
 RESTRICTIONS:
-- ONLY provide information related to medical, health, or wellness topics
-- If asked anything non-medical, politely decline: "I'm a medical consultation assistant and can only help with health or medical-related concerns."
+- ONLY provide information related to medical, health, or wellness topics.
+- If asked anything non-medical, politely decline: 
+  "I'm a medical consultation assistant and can only help with health or medical-related concerns."
 
 CONVERSATION MODES:
+
 1. **Doctor Mode** (for symptoms/health issues):
-   - Ask relevant, concise medical questions
-   - Each question should clarify symptoms or narrow possible causes
-   - Stop once enough information is collected
-   - Provide structured medical response with headings and emojis
+   - Ask relevant, concise medical questions.
+   - Each question should clarify symptoms or narrow possible causes.
+   - Stop once enough information is collected.
+   - Provide structured medical response with headings and emojis.
+   - ALWAYS factor in the patient's medical profile.
 
 2. **Instructor Mode** (for general medical questions):
-   - Give clear, educational explanations
-   - Use short paragraphs or bullet points
-   - Maintain professional but approachable tone
-   - Conclude with practical health tips
+   - Give clear, educational explanations.
+   - Use short paragraphs or bullet points.
+   - Maintain professional but approachable tone.
+   - Conclude with practical health tips.
 
 FINAL RESPONSE FORMAT:
+
 📋 Based on what you've told me...
-[Brief summary of patient's description]
+[Brief summary of patient's symptoms, plus any relevant history factors]
 
 🔍 Possible Causes (Preliminary)
-- List 1–2 possible conditions with phrases like "It could be" or "This sounds like"
+- 1–2 possible explanations using soft language (“It could be…”, “This might be…”)
 - Include disclaimer that this is not a confirmed diagnosis
+- NOTE: Adjust based on patient's history (conditions, meds, allergies)
 
-💊 Medication Advice (Safe & OTC)  
-- Suggest only safe, widely available OTC medicines.  
-- Add disclaimers such as:  
-  “Use only if you have no allergies to this medication.”  
+💊 Medication Advice (Safe & OTC)
+- Suggest only widely available OTC medicines
+- ENSURE medication is safe given the patient’s:
+  - allergies
+  - chronic illnesses
+  - current medications
+- Use disclaimers:
+  “Use only if you have no allergies to this medication.”
   “Follow packaging instructions or consult a doctor for exact dosing.”
 
 💡 Lifestyle & Home Care Tips
-- 2–3 practical suggestions (rest, hydration, balanced diet, etc.)
+- 2–3 simple, practical suggestions
 
 ⚠️ When to See a Real Doctor
-- 2–3 warning signs when urgent medical care is needed
+- Warning signs adjusted to the patient's underlying medical risks
 
 📅 Follow-Up Advice
-- Brief recommendation for self-care or follow-up timing
+- One short recommendation about monitoring symptoms or follow-up timing
 
 TONE & STYLE:
-- Speak like a caring doctor — short, clear, empathetic (1–2 sentences per reply)
-- Plain language, no jargon
-- One question per turn unless clarification is essential
-- Warm, calm, professional
-- Never make definitive diagnoses; use phrases like "it sounds like" or "it could be"
-- If symptoms seem serious, always recommend urgent medical attention
+- Warm, calm, professional—like a caring doctor
+- Clear, empathetic, no jargon
+- 1–2 sentences per bullet
+- Ask ONLY one question at the end if clarification is truly needed
+- Never give definitive diagnoses; always use soft language
 
 IMPORTANT:
-- This is preliminary guidance, not a substitute for professional care
-- Never provide non-medical information"""
+- This is preliminary guidance, not a substitute for professional care.
+- Never provide non-medical information.
+"""
 
 # ==================== HELPER FUNCTIONS ====================
 def generate_patient_summary(patient_data: dict) -> str:
@@ -215,18 +235,17 @@ def generate_patient_summary(patient_data: dict) -> str:
     return summary
 
 def save_patient_data(user_id: str, data: dict):
-    """Save patient data"""
     file_path = PATIENT_DATA_DIR / f"{user_id}.json"
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=2)
 
 def load_patient_data(user_id: str) -> dict:
-    """Load patient data if exists"""
     file_path = PATIENT_DATA_DIR / f"{user_id}.json"
     if file_path.exists():
         with open(file_path, 'r') as f:
             return json.load(f)
     return None
+
 
 def load_chat_history(user_id: str) -> list:
     """Load chat history for a user"""
@@ -256,69 +275,68 @@ def delete_chat_history(user_id: str):
 # ==================== CHAT ENDPOINT ====================
 @app.post("/chat")
 async def chat(request: ChatRequest):
+    """
+    Chat endpoint that:
+    - Loads patient data and chat history
+    - Updates patient data if new symptoms are reported
+    - Sends patient summary + chat history + current message to LLM
+    - Returns structured, history-aware medical response
+    """
     try:
         user_id = request.user_id
         user_message = request.message.strip()
         
-        # Load existing chat history
+        # -------------------------------
+        # Load patient data & chat history
+        # -------------------------------
+        patient_data = load_patient_data(user_id) or {}
         chat_history = load_chat_history(user_id)
         
-        # Load patient data
-        patient_data = load_patient_data(user_id)
+        # -------------------------------
+        # Update patient data with new symptom info
+        # -------------------------------
+        if "new_symptoms" not in patient_data:
+            patient_data["new_symptoms"] = []
         
-        # Check if this is first message
-        is_first_message = len(chat_history) == 0
+        # Simple heuristic: if message contains key symptoms, store it
+        symptom_keywords = ["fever", "cough", "headache", "ache", "pain", "rash", "vomit", "nausea"]
+        if any(word in user_message.lower() for word in symptom_keywords):
+            patient_data["new_symptoms"].append(user_message)
+            save_patient_data(user_id, patient_data)
         
-        # Prepare messages for Groq
-        messages = [{"role": "system", "content": DOCTOR_SYSTEM_PROMPT}]
+        # -------------------------------
+        # Generate patient summary
+        # -------------------------------
+        persistent_summary = generate_patient_summary(patient_data) if patient_data else "No patient history available."
         
-        # If first message and patient has previous data, add context
-        if is_first_message and patient_data:
-            patient_summary = generate_patient_summary(patient_data)
-            patient_name = patient_data.get('name', 'there')
-            
-            welcome_context = f"""This is a returning patient named {patient_name}. Here's their comprehensive medical profile:
-{patient_summary}
+        # -------------------------------
+        # Prepare messages for LLM
+        # -------------------------------
+        messages = [
+            {"role": "system", "content": DOCTOR_SYSTEM_PROMPT},
+            {"role": "system", "content": f"""
+You MUST always consider the following patient medical data when responding:
 
-IMPORTANT: 
-- Greet them warmly by name
-- Acknowledge their key health conditions (e.g., "I see you have hypertension and diabetes")
-- Ask how they're feeling, especially regarding their known conditions
-- Be aware of their medications and allergies when providing advice
-- Reference their lab abnormalities if relevant to the conversation
-- Keep your greeting natural and conversational (2-3 sentences max)"""
-            
-            messages.append({"role": "system", "content": welcome_context})
+{persistent_summary}
 
-        # Always include the full patient summary in every LLM call
-        if patient_data:
-            persistent_summary = generate_patient_summary(patient_data)
+Instructions:
+- Never ignore this data
+- Always factor in medications, allergies, chronic diseases, labs, and past history
+- Treat any new symptoms the patient mentions as updates to their profile
+- Provide guidance in the FINAL RESPONSE FORMAT
+"""}
+        ]
         
-            persistent_context = f"""
-        You must ALWAYS use the following patient medical data when answering.
-        This data comes from the patient's health record and stays valid throughout the conversation.
-        
-        PATIENT MEDICAL SUMMARY:
-        {persistent_summary}
-        
-        Instructions:
-        - Never ignore this data
-        - Always consider diagnosis, medications, allergies, labs, past medical issues
-        - If user provides new medical info, assume it updates their profile
-        """
-        
-            messages.append({"role": "system", "content": persistent_context})
-
-        
-        # Add chat history (convert format for Groq)
+        # Add previous chat history
         for msg in chat_history:
-            role = "user" if msg["role"] == "user" else "assistant"
-            messages.append({"role": role, "content": msg["content"]})
+            messages.append({"role": msg["role"], "content": msg["content"]})
         
         # Add current user message
         messages.append({"role": "user", "content": user_message})
         
-        # Call Groq API
+        # -------------------------------
+        # Call Groq API (LLM)
+        # -------------------------------
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -328,13 +346,16 @@ IMPORTANT:
         
         reply_text = response.choices[0].message.content.strip()
         
+        # -------------------------------
         # Update chat history
+        # -------------------------------
         chat_history.append({"role": "user", "content": user_message})
         chat_history.append({"role": "assistant", "content": reply_text})
-        
-        # Save updated history
         save_chat_history(user_id, chat_history)
         
+        # -------------------------------
+        # Return response
+        # -------------------------------
         return JSONResponse({
             "reply": reply_text,
             "user_id": user_id,
@@ -344,6 +365,7 @@ IMPORTANT:
     except Exception as e:
         print(f"Error in /chat: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # ==================== CHAT HISTORY ENDPOINTS ====================
 @app.get("/chat-history/{user_id}")
@@ -474,6 +496,7 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
+
 
 
 
