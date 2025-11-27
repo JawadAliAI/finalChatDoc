@@ -406,7 +406,7 @@ Instructions:
         conversation_prompt += f"\nPatient: {user_message}\n\nDr. HealBot:"
         
         # Call Gemini API
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(
             conversation_prompt,
             generation_config=genai.types.GenerationConfig(
@@ -546,3 +546,4 @@ async def speech_to_text(file: UploadFile = File(...)):
     except Exception as e:
         print(f"Error in STT: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
